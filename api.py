@@ -12,6 +12,7 @@ with open('./.key') as f:
     apikey = f.readlines()[0]
 
 map_file = './map.graph'
+map_visited_file = './map.visited'
 
 
 class Room(object):
@@ -132,6 +133,24 @@ class Graph(object):
         else:
             return None
 
+    def save_visited(self):
+        output = "\u007b"
+        for room_id in list(self.visited_rooms):
+            output += str(room_id)+','
+        output = output[:-1]+"\u007d"
+        f = open(map_visited_file, 'w')
+        f.write(output)
+        f.close()
+
+    def load_visited(self):
+        if os.path.exists(map_visited_file):
+            with open(map_visited_file, 'r') as f:
+                content = eval(f.readline())
+                for id in list(content):
+                    self.visited_rooms.add(id)
+        else:
+            return None
+
 
 class Player(object):
     def __init__(self):
@@ -140,8 +159,10 @@ class Player(object):
 
 app = Flask(__name__)
 graph = Graph()
-# graph.load_graph()
-# graph.save_graph()
+graph.load_graph()
+graph.save_graph()
+graph.load_visited()
+graph.save_visited()
 
 
 # ========================== MAP ENDPOINTS ======================
@@ -199,7 +220,7 @@ def examine():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": name }
+    body = {"name": name}
 
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -242,7 +263,7 @@ def changer():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": new_name }
+    body = {"name": new_name}
 
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
