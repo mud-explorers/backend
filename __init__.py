@@ -1,6 +1,5 @@
 import sys
-from api import *
+from api import app
 
-api = API()
 port = 5000
 app.run(host='0.0.0.0', port=port)
