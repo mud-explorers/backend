@@ -96,3 +96,9 @@ Pipfile.lock
 
 # key file
 .key
+
+# graph
+map.graph
+
+# visited
+map.visited
