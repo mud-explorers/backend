@@ -153,16 +153,28 @@ class Graph(object):
 
 
 class Player(object):
-    def __init__(self):
+    def __init__(self, name, starting_room):
+        self.name = name
+        self.current_room = starting_room
+
+    def travel(self, direction):
+        next_room = self.current_room.get_room_in_direction(direction)
+        if next_room is not None:
+            self.current_room = next_room
+        else:
+            print("Cannot move in that direction!")
+
+    def autonomous_travel(self, direction):
+        pass
+
+    def map_rooms(self):
         pass
 
 
 app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
-graph.save_graph()
 graph.load_visited()
-graph.save_visited()
 
 
 @app.route('/', methods=['GET'])
