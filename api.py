@@ -12,6 +12,7 @@ with open('./.key') as f:
     apikey = f.readlines()[0]
 
 map_file = './map.graph'
+map_visited_file = './map.visited'
 
 
 class Room(object):
@@ -132,6 +133,24 @@ class Graph(object):
         else:
             return None
 
+    def save_visited(self):
+        output = "\u007b"
+        for room_id in list(self.visited_rooms):
+            output += str(room_id)+','
+        output = output[:-1]+"\u007d"
+        f = open(map_visited_file, 'w')
+        f.write(output)
+        f.close()
+
+    def load_visited(self):
+        if os.path.exists(map_visited_file):
+            with open(map_visited_file, 'r') as f:
+                content = eval(f.readline())
+                for id in list(content):
+                    self.visited_rooms.add(id)
+        else:
+            return None
+
 
 class Player(object):
     def __init__(self):
@@ -142,6 +161,8 @@ app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
 graph.save_graph()
+graph.load_visited()
+graph.save_visited()
 
 
 @app.route('/', methods=['GET'])
@@ -173,6 +194,7 @@ def move():
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
 
+
 @app.route('/examine', methods=['POST'])
 def examine():
     values = request.get_json()
@@ -180,10 +202,11 @@ def examine():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": name }
+    body = {"name": name}
 
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
+
 
 @app.route('/name-changer', methods=['POST'])
 def changer():
@@ -193,19 +216,21 @@ def changer():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": new_name }
+    body = {"name": new_name}
 
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
 
-@app.route('/dash', method=['POST'])
+
+@app.route('/dash', methods=['POST'])
 def dash():
     values = request.get_json()
-    [direction, num_rooms] = [values[k] if k in values else None for k in ("direction", "num_rooms")]
+    [direction, num_rooms] = [
+        values[k] if k in values else None for k in ("direction", "num_rooms")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/dash/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "direction": direction, "num_rooms": num_rooms }
+    body = {"direction": direction, "num_rooms": num_rooms}
 
     next_room_ids = ""
     # from the current room, generate the ids for num_rooms in direction
