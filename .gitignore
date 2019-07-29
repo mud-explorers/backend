@@ -93,3 +93,6 @@ Pipfile.lock
 
 # vscode
 .vscode
+
+# key file
+.key
