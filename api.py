@@ -74,6 +74,18 @@ class Graph(object):
         self.rooms = dict()
         self.visited_rooms = set()
 
+    def add_room(self, room):
+        if room.id not in self.rooms:
+            self.rooms[room.id] = room
+        else:
+            return None
+
+    def visited_room(self, room_id):
+        return room_id in self.visited_rooms
+
+    def visit_room(self, room_id):
+        self.visited_rooms.add(room_id)
+
 
 class Player(object):
     def __init__(self):
