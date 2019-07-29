@@ -140,10 +140,11 @@ class Player(object):
 
 app = Flask(__name__)
 graph = Graph()
-graph.load_graph()
-graph.save_graph()
+# graph.load_graph()
+# graph.save_graph()
 
 
+# ========================== MAP ENDPOINTS ======================
 @app.route('/', methods=['GET'])
 def root_route():
     return jsonify({'message': 'API ok'}), 200
@@ -173,32 +174,8 @@ def move():
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
 
-@app.route('/examine', methods=['POST'])
-def examine():
-    values = request.get_json()
-    name = values.get("name")
 
-    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
-    headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": name }
-
-    r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
-
-@app.route('/name-changer', methods=['POST'])
-def changer():
-    # check if we have the name changer...
-    values = request.get_json()
-    new_name = values.get("name")
-
-    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
-    headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": new_name }
-
-    r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
-
-@app.route('/dash', method=['POST'])
+@app.route('/dash', methods=['POST'])
 def dash():
     values = request.get_json()
     [direction, num_rooms] = [values[k] if k in values else None for k in ("direction", "num_rooms")]
@@ -212,3 +189,60 @@ def dash():
     body["next_rooms_ids"] = next_room_ids
     # r = requests.post(url=url, headers=headers, json=body)
     # return jsonify(r.json()), 200
+
+
+# ========================== TREASURE ENDPOINTS ======================
+@app.route('/examine', methods=['POST'])
+def examine():
+    values = request.get_json()
+    name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "name": name }
+
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+
+@app.route('/take', methods=['POST'])
+def take():
+    values = request.get_json()
+    treasure = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "name": treasure }
+
+
+@app.route('/drop', methods=['POST'])
+def drop():
+    values = request.get_json()
+    treasure = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "name": treasure }
+
+
+# ========================== PLAYER ENDPOINTS ======================
+@app.route('/status', methods=['GET'])
+def status():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/status/'
+    headers = {"Authorization": f"Token {apikey}"}
+    r = requests.post(url=url, headers=headers)
+    return jsonify(r.json()), 200
+
+
+@app.route('/name-changer', methods=['POST'])
+def changer():
+    # check if we have the name changer...
+    values = request.get_json()
+    new_name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "name": new_name }
+
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
