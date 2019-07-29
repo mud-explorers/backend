@@ -5,10 +5,13 @@ from flask import Flask, jsonify, request
 from urllib.parse import urlparse
 import requests
 import sys
+import os
 
 apikey = None
 with open('./.key') as f:
     apikey = f.readlines()[0]
+
+map_file = './map.graph'
 
 
 class Room(object):
@@ -68,6 +71,12 @@ class Room(object):
     def coords(self):
         return self.x, self.y
 
+    def __str__(self):
+        exits = dict()
+        for x in self.get_exits():
+            exits[x] = self.get_room_in_direction(x).id
+        return f"{self.id}:[{(self.x, self.y)},{exits}]"
+
 
 class Graph(object):
     def __init__(self):
@@ -86,6 +95,43 @@ class Graph(object):
     def visit_room(self, room_id):
         self.visited_rooms.add(room_id)
 
+    def save_graph(self):
+        output = "\u007b"
+        for k, room in self.rooms.items():
+            output += str(room)+','
+        output = output[:-1]+"\u007d"
+        f = open(map_file, 'w')
+        f.write(output)
+        f.close()
+
+    def load_graph(self):
+        if os.path.exists(map_file):
+            with open(map_file, 'r') as f:
+                content = eval(f.readline())
+                for i in range(len(content)):
+                    room_id = i
+                    x, y = content[i][0]
+                    exits = content[1]
+                    room = Room(room_id, x, y)
+                    self.add_room(room)
+                for i in range(len(content)):
+                    room_id = i
+                    exits = content[i][1]
+                    if 'n' in exits:
+                        self.rooms[room_id].connect_rooms(
+                            'n', self.rooms[exits['n']])
+                    if 's' in exits:
+                        self.rooms[room_id].connect_rooms(
+                            's', self.rooms[exits['s']])
+                    if 'e' in exits:
+                        self.rooms[room_id].connect_rooms(
+                            'e', self.rooms[exits['e']])
+                    if 'w' in exits:
+                        self.rooms[room_id].connect_rooms(
+                            'w', self.rooms[exits['w']])
+        else:
+            return None
+
 
 class Player(object):
     def __init__(self):
@@ -93,6 +139,9 @@ class Player(object):
 
 
 app = Flask(__name__)
+graph = Graph()
+graph.load_graph()
+graph.save_graph()
 
 
 @app.route('/', methods=['GET'])
@@ -111,11 +160,12 @@ def init_route():
 @app.route('/move', methods=['POST'])
 def move():
     values = request.get_json()
-    [direction, next_room_id] = [values[k] if k in values else None for k in ("direction", "next_room_id")]
+    [direction, next_room_id] = [
+        values[k] if k in values else None for k in ("direction", "next_room_id")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/move/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "direction": direction }
+    body = {"direction": direction}
     # check that next_room_id is the right one so we do not get a cooldown penalty....
     if not not next_room_id and True:
         body["next_room_id"] = next_room_id
