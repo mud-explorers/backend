@@ -11,8 +11,10 @@ class API(object):
     def __init__(self):
         pass
 
+
 app = Flask(__name__)
+
 
 @app.route('/', methods=['GET'])
 def root_route():
-    return jsonify({ 'message': 'API ok' }), 200
+    return jsonify({'message': 'API ok'}), 200
