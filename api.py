@@ -169,5 +169,46 @@ def move():
     # check that next_room_id is the right one so we do not get a cooldown penalty....
     if not not next_room_id and True:
         body["next_room_id"] = next_room_id
+
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
+
+@app.route('/examine', methods=['POST'])
+def examine():
+    values = request.get_json()
+    name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "name": name }
+
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+@app.route('/name-changer', methods=['POST'])
+def changer():
+    # check if we have the name changer...
+    values = request.get_json()
+    new_name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "name": new_name }
+
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+@app.route('/dash', method=['POST'])
+def dash():
+    values = request.get_json()
+    [direction, num_rooms] = [values[k] if k in values else None for k in ("direction", "num_rooms")]
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/dash/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = { "direction": direction, "num_rooms": num_rooms }
+
+    next_room_ids = ""
+    # from the current room, generate the ids for num_rooms in direction
+    body["next_rooms_ids"] = next_room_ids
+    # r = requests.post(url=url, headers=headers, json=body)
+    # return jsonify(r.json()), 200
