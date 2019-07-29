@@ -43,12 +43,16 @@ def init_route():
     return jsonify(r.json()), 200
 
 
-@app.route('/move', methods=['GET'])
+@app.route('/move', methods=['POST'])
 def move():
     values = request.get_json()
-    diretion = values.get('direction')
+    [direction, next_room_id] = [values[k] if k in values else None for k in ("direction", "next_room_id")]
 
-    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/init/'
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/move/'
     headers = {"Authorization": f"Token {apikey}"}
-    r = requests.get(url=url, headers=headers)
+    body = { "direction": direction }
+    # check that next_room_id is the right one so we do not get a cooldown penalty....
+    if not not next_room_id and True:
+        body["next_room_id"] = next_room_id
+    r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
