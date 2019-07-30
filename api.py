@@ -216,11 +216,44 @@ class Player(object):
 
     def find_nearest_unexplored_room(self):
         # find path to the nearest room with unexplored paths
-        route = self.bfs()
-        print(route)
+        return self.bfs()
+
+    def glue_consecutive_path(self, path):
+        # for dash
+        glued_path = []
+        rooms = []
+        tmp = self.current_room
+        for elem in path:
+            if len(glued_path) > 0:
+                if elem != glued_path[-1][0]:
+                    glued_path.append(elem)
+                    rooms.append([tmp.get_room_in_direction(elem).id]) if tmp.get_room_in_direction(
+                        elem) != '?' else None
+                else:
+                    if tmp.get_room_in_direction(elem) != '?':
+                        glued_path[-1] += elem
+                        rooms[-1].append(tmp.get_room_in_direction(elem).id)
+                    else:
+                        glued_path.append(elem)
+                tmp = tmp.get_room_in_direction(elem)
+                continue
+            glued_path.append(elem)
+            rooms.append([tmp.get_room_in_direction(elem).id]
+                         ) if tmp.get_room_in_direction(elem) != '?' else None
+            tmp = tmp.get_room_in_direction(elem)
+        return glued_path, rooms
 
     def autonomous_play(self):
         pass
+
+    def get_num_of_unexplored_rooms(self):
+        rooms_unexplored = []
+        for k, v in graph.rooms.items():
+            exits = [v.get_room_in_direction(
+                direction) for direction in v.get_exits()]
+            if '?' in exits:
+                rooms_unexplored.append(k)
+        return len(rooms_unexplored)
 
     def map_rooms(self):
         if len(sys.argv) > 1:
@@ -247,66 +280,69 @@ class Player(object):
         time.sleep(cooldown)
         self.save_position()
 
-        return self.find_nearest_unexplored_room()
-
         prev_direction = None
-        while len(graph.rooms) < 500:
-            # check the current room
-            # get exits
-            # do random action
-            # if current room not in self.rooms, add it
-            # sleep X
-            # save graph
-            # repeat
 
-            exits = self.current_room.get_exits()
-            if len(exits) > 1:
-                if len([x for x in exits if self.current_room.get_room_in_direction(x) == '?']) > 0:
-                    exits = [
-                        x for x in exits if self.current_room.get_room_in_direction(x) == '?']
+        while self.get_num_of_unexplored_rooms() > 0:
+            newpath, newrooms = self.glue_consecutive_path(
+                self.find_nearest_unexplored_room())
+            for i in range(len(newpath)):
+                if len(newpath[i]) > 1:
+                    # use dash
+                    direction = newpath[i][0]
+                    num_rooms = len(newpath[i])
+                    next_room_ids = ",".join(map(str, newrooms[i]))
+
+                    next_room = self.current_room.get_room_in_direction(
+                        direction) if self.current_room.get_room_in_direction(direction) != '?' else None
+                    post_data = {
+                        "direction": direction,
+                        "num_rooms": num_rooms,
+                        "next_room_ids": next_room_ids
+                    }
+
+                    res = requests.post(
+                        url=node+"/dash", json=post_data).json()
                 else:
-                    exits = [x for x in exits if x !=
-                             self.get_opposite_direction(prev_direction)]
-                random.shuffle(exits)
-            direction = exits[0]
-            next_room = self.current_room.get_room_in_direction(
-                direction) if self.current_room.get_room_in_direction(direction) != '?' else None
-            if next_room is not None:
-                post_data = {
-                    "direction": direction,
-                    "next_room_id": str(next_room.id)
-                }
-            else:
-                post_data = {"direction": direction}
+                    # go by one room
+                    direction = newpath[i]
+                    next_room = self.current_room.get_room_in_direction(
+                        direction) if self.current_room.get_room_in_direction(direction) != '?' else None
+                    if next_room is not None:
+                        post_data = {
+                            "direction": direction,
+                            "next_room_id": str(next_room.id)
+                        }
+                    else:
+                        post_data = {"direction": direction}
 
-            res = requests.post(url=node+"/move", json=post_data).json()
+                    res = requests.post(
+                        url=node+"/move", json=post_data).json()
+                id = res.get('room_id')
+                cooldown = res.get('cooldown')
+                title = res.get('title')
+                x, y = eval(res.get('coordinates'))
+                exits = res.get('exits')
+                if id not in graph.rooms:
+                    new_room = Room(id, x, y, title)
+                    new_room.n_to = "?" if "n" in exits else None
+                    new_room.s_to = "?" if "s" in exits else None
+                    new_room.e_to = "?" if "e" in exits else None
+                    new_room.w_to = "?" if "w" in exits else None
+                    graph.add_room(new_room)
+                    print(
+                        f"Mapped a new room! Currently mapped: {len(graph.rooms)} rooms.")
+                else:
+                    new_room = graph.rooms[id]
 
-            id = res.get('room_id')
-            cooldown = res.get('cooldown')
-            title = res.get('title')
-            x, y = eval(res.get('coordinates'))
-            exits = res.get('exits')
-            if id not in graph.rooms:
-                new_room = Room(id, x, y, title)
-                new_room.n_to = "?" if "n" in exits else None
-                new_room.s_to = "?" if "s" in exits else None
-                new_room.e_to = "?" if "e" in exits else None
-                new_room.w_to = "?" if "w" in exits else None
-                graph.add_room(new_room)
-                print(
-                    f"Mapped a new room! Currently mapped: {len(graph.rooms)} rooms.")
-            else:
-                new_room = graph.rooms[id]
+                if self.current_room.get_room_in_direction(direction) == '?':
+                    self.current_room.connect_rooms(
+                        direction, graph.rooms[new_room.id])
 
-            if self.current_room.get_room_in_direction(direction) == '?':
-                self.current_room.connect_rooms(
-                    direction, graph.rooms[new_room.id])
-
-            self.travel(direction)
-            prev_direction = direction
-            graph.save_graph()
-            self.save_position()
-            time.sleep(cooldown)
+                self.travel(direction)
+                prev_direction = direction
+                graph.save_graph()
+                self.save_position()
+                time.sleep(cooldown)
 
 
 app = Flask(__name__)
@@ -350,18 +386,15 @@ def move():
 @app.route('/dash', methods=['POST'])
 def dash():
     values = request.get_json()
-    [direction, num_rooms] = [
-        values[k] if k in values else None for k in ("direction", "num_rooms")]
+    [direction, num_rooms, next_room_ids] = [
+        values[k] if k in values else None for k in ("direction", "num_rooms", "next_room_ids")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/dash/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = {"direction": direction, "num_rooms": num_rooms}
-
-    next_room_ids = ""
-    # from the current room, generate the ids for num_rooms in direction
-    body["next_rooms_ids"] = next_room_ids
-    # r = requests.post(url=url, headers=headers, json=body)
-    # return jsonify(r.json()), 200
+    body = {"direction": direction, "num_rooms": num_rooms,
+            "next_room_ids": next_room_ids}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
 
 
 # ========================== TREASURE ENDPOINTS ======================
