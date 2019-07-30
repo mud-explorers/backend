@@ -16,10 +16,11 @@ with open('./.key') as f:
 
 map_file = './map.graph'
 map_visited_file = './map.visited'
+node = "http://localhost:5000"
 
 
 class Room(object):
-    def __init__(self, id=0, x=None, y=None, title="", description="", elevation=0, terrain=""):
+    def __init__(self, id=0, x=None, y=None, title="", description="", elevation=0, terrain="NORMAL"):
         self.id = id
         self.x = x
         self.y = y
@@ -80,7 +81,7 @@ class Room(object):
         for x in self.get_exits():
             exits[x] = '?' if type(self.get_room_in_direction(
                 x)) == str else self.get_room_in_direction(x).id
-        return f"{self.id}:[{(self.x, self.y)},{exits}]"
+        return f"{self.id}:[{(self.x, self.y)},{exits},\"{self.title}\",\"{self.description}\",{self.elevation},\"{self.terrain}\"]"
 
 
 class Graph(object):
@@ -116,7 +117,13 @@ class Graph(object):
                 for k, v in content.items():
                     room_id = k
                     x, y = v[0]
-                    room = Room(room_id, x, y)
+                    title = v[2]
+                    description = v[3]
+                    elevation = v[4]
+                    terrain = v[5]
+
+                    room = Room(room_id, x, y, title,
+                                description, elevation, terrain)
                     self.add_room(room)
                 for k, v in content.items():
                     room_id = k
@@ -169,26 +176,49 @@ class Graph(object):
 
 class Player(object):
     def __init__(self, name):
-        self.name = name
+        self.new_name = name
         self.current_room = None
 
-    def travel(self, direction, dash=False, num_rooms=1):
-        if dash:
-            for n in range(num_rooms-1):
-                next_room = self.current_room.get_room_in_direction(direction)
-                self.current_room = next_room
+        self.name = None
+        self.encumbrance: 0
+        self.strength = 0
+        self.speed = 0
+        self.gold = 0
+        self.inventory = []
 
-        next_room = self.current_room.get_room_in_direction(direction)
-        if next_room is not None:
-            self.current_room = next_room
-        else:
-            print("Cannot move in that direction!")
+    def travel(self, id):
+        self.current_room = graph.rooms[id]
 
     def save_position(self):
         f = open('./player.position', 'a')
         f.write(
             f"{datetime.datetime.now()}: ({self.current_room.x},{self.current_room.y})\n")
         f.close()
+
+    def save_room(self, room_json):
+        f = open('./rooms.details', 'a')
+        f.write(str(room_json)+"\n")
+        f.close()
+
+    def update_player(self):
+        res = requests.get(url=node+'/status').json()
+
+        name = res.get('name')
+        cooldown = res.get('cooldown')
+        encumbrance = res.get('encumbrance')
+        strength = res.get('strength')
+        speed = res.get('speed')
+        gold = res.get('gold')
+        inventory = res.get('inventory')
+        self.name = name
+        self.encumbrance = encumbrance
+        self.strength = strength
+        self.speed = speed
+        self.gold = gold
+        self.inventory = inventory
+        print(
+            f"Currently in the pocket ({self.encumbrance}/{self.strength}): ", self.inventory)
+        time.sleep(cooldown)
 
     def get_opposite_direction(self, direction):
         directions = {
@@ -216,6 +246,27 @@ class Player(object):
                     queue.append(new_path)
                     if graph.rooms[vertex].get_room_in_direction(news) == '?':
                         return [list(step.values())[0] for step in new_path[1:]]
+                visited.add(vertex)
+        return None
+
+    def bfs_to_dest(self, dest_id):
+        visited = set()
+        queue = deque()
+        queue.append([{self.current_room.id: None}])
+        while len(queue) > 0:
+            path = queue.popleft()
+            vertex = list(path[-1])[0]
+            if vertex not in visited:
+                for news in graph.rooms[vertex].get_exits():
+                    new_path = list(path)
+                    if graph.rooms[vertex].get_room_in_direction(news) != '?':
+                        val = {graph.rooms[vertex].get_room_in_direction(
+                            news).id: news}
+                        new_path.append(val)
+                    queue.append(new_path)
+                    if graph.rooms[vertex].get_room_in_direction(news) != None and type(graph.rooms[vertex].get_room_in_direction(news)) is not str:
+                        if graph.rooms[vertex].get_room_in_direction(news).id == dest_id:
+                            return [list(step.values())[0] for step in new_path[1:]]
                 visited.add(vertex)
         return None
 
@@ -248,6 +299,33 @@ class Player(object):
             tmp = tmp.get_room_in_direction(elem)
         return glued_path, rooms
 
+    def take_item(self, item_name):
+        post_data = {"name": item_name}
+        r = requests.post(url=node+'/take', json=post_data).json()
+        cooldown = r.get('cooldown')
+        time.sleep(cooldown)
+        print(f"Picked up {item_name}!")
+        self.update_player()
+
+    def drop_item(self, item_name):
+        post_data = {"name": item_name}
+        r = requests.post(url=node+'/drop', json=post_data).json()
+        cooldown = r.get('cooldown')
+        time.sleep(cooldown)
+        print(f"Dropped {item_name}!")
+        self.update_player()
+
+    def sell_item(self, item_name):
+        post_data = {"name": item_name}
+        r = requests.post(url=node+'/sell', json=post_data).json()
+        cooldown = r.get('cooldown')
+        time.sleep(cooldown)
+        post_data = {"name": item_name, "confirm": "yes"}
+        r = requests.post(url=node+'/sell', json=post_data).json()
+        time.sleep(cooldown)
+        print(f"Sold {item_name}!")
+        self.update_player()
+
     def autonomous_play(self):
         pass
 
@@ -261,54 +339,60 @@ class Player(object):
         return len(rooms_unexplored)
 
     def map_rooms(self):
-        node = "http://localhost:5000"
+        # self.current_room = graph.rooms[3]
+        # rtmp = self.bfs_to_dest(0)
+        # print(len(rtmp), rtmp)
+        # return
 
         res = requests.get(url=node+'/init').json()
 
         id = res.get('room_id')
         title = res.get('title')
+        description = res.get('description')
+        elevation = res.get('elevation')
+        terrain = res.get('terrain')
         x, y = eval(res.get('coordinates'))
         cooldown = res.get('cooldown')
         exits = res.get('exits')
 
-        first_room = Room(id, x, y, title)
+        first_room = Room(id, x, y, title, description, elevation, terrain)
         first_room.n_to = "?" if "n" in exits else None
         first_room.s_to = "?" if "s" in exits else None
         first_room.e_to = "?" if "e" in exits else None
         first_room.w_to = "?" if "w" in exits else None
 
         graph.add_room(first_room)
-        self.current_room = graph.rooms[id]
+        self.current_room = graph.rooms[0]
         time.sleep(cooldown)
         self.save_position()
 
+        self.update_player()
+
         prev_direction = None
+        newpath = self.find_nearest_unexplored_room()
 
         while self.get_num_of_unexplored_rooms() > 0:
-            newpath, newrooms = self.glue_consecutive_path(
-                self.find_nearest_unexplored_room())
-
-            dash = False
-            num_rooms = 1
-
+            # newpath, newrooms = self.glue_consecutive_path(
+                # self.find_nearest_unexplored_room())
+            print(f"{len(newpath)} rooms to go through:", newpath)
             for i in range(len(newpath)):
                 if len(newpath[i]) > 1:
-                    # use dash
-                    dash = True
-                    direction = newpath[i][0]
-                    num_rooms = len(newpath[i])
-                    next_room_ids = ",".join(map(str, newrooms[i]))
+                    # # use dash
+                    pass
+                    # direction = newpath[i][0]
+                    # num_rooms = len(newpath[i])
+                    # next_room_ids = ",".join(map(str, newrooms[i]))
 
-                    next_room = self.current_room.get_room_in_direction(
-                        direction) if self.current_room.get_room_in_direction(direction) != '?' else None
-                    post_data = {
-                        "direction": direction,
-                        "num_rooms": num_rooms,
-                        "next_room_ids": next_room_ids
-                    }
+                    # post_data = {
+                    #     "direction": direction,
+                    #     "num_rooms": str(num_rooms),
+                    #     "next_room_ids": next_room_ids
+                    # }
+                    # print(post_data)
 
-                    res = requests.post(
-                        url=node+"/dash", json=post_data).json()
+                    # res = requests.post(
+                    #     url=node+"/dash", json=post_data).json()
+                    # print(res)
                 else:
                     # go by one room
                     direction = newpath[i]
@@ -327,10 +411,14 @@ class Player(object):
                 id = res.get('room_id')
                 cooldown = res.get('cooldown')
                 title = res.get('title')
+                description = res.get('description')
+                elevation = res.get('elevation')
+                terrain = res.get('terrain')
                 x, y = eval(res.get('coordinates'))
                 exits = res.get('exits')
                 if id not in graph.rooms:
-                    new_room = Room(id, x, y, title)
+                    new_room = Room(id, x, y, title,
+                                    description, elevation, terrain)
                     new_room.n_to = "?" if "n" in exits else None
                     new_room.s_to = "?" if "s" in exits else None
                     new_room.e_to = "?" if "e" in exits else None
@@ -345,11 +433,29 @@ class Player(object):
                     self.current_room.connect_rooms(
                         direction, graph.rooms[new_room.id])
 
-                self.travel(direction, dash, num_rooms)
+                self.travel(id)
+                self.save_room(res)
+                # check if any items in the room and if so, take it
+                # try:
+                #     items = res.get('items')
+                #     if len(items) > 0:
+                #         for item_name in items:
+                #             print(f"Found {item_name}!")
+                #             if self.encumbrance < self.strength:
+                #                 self.take_item(item_name)
+                #     else:
+                #         print("No items in this room.")
+                # except:
+                #     print("Cannot see anything in this room.")
+
+                print(
+                    f"Current room: {id} ({title} - {x},{y}) - cooldown: {cooldown}")
                 prev_direction = direction
                 graph.save_graph()
                 self.save_position()
                 time.sleep(cooldown)
+            newpath = self.find_nearest_unexplored_room()
+            # newpath = self.find_nearest_unexplored_room() if (self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
 
 
 app = Flask(__name__)
@@ -415,11 +521,11 @@ def examine():
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
     # if name in player.current_room[items] or name in player.current_room[players]:
-    if False:
-        r = requests.post(url=url, headers=headers, json=body)
-        return jsonify(r.json()), 200
-    else:
-        return jsonify({"message": f"{name} is not in the room", "treasures": ["not something"], "players": ["not something"]}), 404
+    # if False:
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+    # else:
+    #     return jsonify({"message": f"{name} is not in the room", "treasures": ["not something"], "players": ["not something"]}), 404
 
 
 @app.route('/take', methods=['POST'])
@@ -431,12 +537,12 @@ def take():
     headers = {"Authorization": f"Token {apikey}"}
     # check to see if item is in room we are in, to avoid cooldown penalty.
     # if treasure in player.current_room[items]:
-    if False:
-        body = {"name": treasure}
-        r = requests.post(url=url, headers=headers, json=body)
-        return jsonify(r.json()), 200
-    else:
-        return jsonify({"message": f"{treasure} is not in the room", "treasures": ["not something"]}), 404
+    # if False:
+    body = {"name": treasure}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+    # else:
+    # return jsonify({"message": f"{treasure} is not in the room", "treasures": ["not something"]}), 404
 
 
 @app.route('/drop', methods=['POST'])
@@ -444,16 +550,40 @@ def drop():
     values = request.get_json()
     treasure = values.get("name")
 
-    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/drop/'
     headers = {"Authorization": f"Token {apikey}"}
     # check if we have treasure in inventory to avoid cooldown penalty.
     # if treasure in player.inventory:
-    if False:
-        body = {"name": treasure}
-        r = requests.post(url=url, headers=headers, json=body)
-        return jsonify(r.json()), 200
-    else:
-        return jsonify({"message": f"{treasure} is not in your inventory", "inventory": ["not something"]}), 404
+    # if False:
+    body = {"name": treasure}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+    # else:
+    #     return jsonify({"message": f"{treasure} is not in your inventory", "inventory": ["not something"]}), 404
+
+
+@app.route('/sell', methods=['POST'])
+def sell():
+    values = request.get_json()
+    treasure = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/sell/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"name": treasure}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+
+@app.route('/sell/confirm', methods=['POST'])
+def sell_confirm():
+    values = request.get_json()
+    treasure = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/sell/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"name": treasure, "confirm": "yes"}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
 
 
 # ========================== PLAYER ENDPOINTS ======================
@@ -476,8 +606,8 @@ def changer():
     body = {"name": new_name}
     # check if we have name-changer power, cooldown penalty is 150
     # if "name_changer" in player.powerups:
-    if False:
-        r = requests.post(url=url, headers=headers, json=body)
-        return jsonify(r.json()), 200
-    else:
-        return jsonify({"message": f"You do not have the ability to change your name", "powerups": ["not name_chnager"]}), 404
+    # if False:
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+    # else:
+    #     return jsonify({"message": f"You do not have the ability to change your name", "powerups": ["not name_chnager"]}), 404
