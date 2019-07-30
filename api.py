@@ -269,6 +269,8 @@ class Player(object):
             id = res.get('room_id')
             cooldown = res.get('cooldown')
             title = res.get('title')
+            if title == 'Shop':
+                print('FOUND SHOP: ', id)
             x, y = eval(res.get('coordinates'))
             exits = res.get('exits')
             if id not in graph.rooms:
@@ -292,6 +294,9 @@ class Player(object):
             graph.save_graph()
             self.save_position()
             time.sleep(cooldown)
+    def change_name_to(name):
+        node = "http://localhost:5000"
+        return requests.post(url=node+'/name-changer', json={"name": name}).json()
 
 
 app = Flask(__name__)
@@ -299,7 +304,7 @@ graph = Graph()
 # graph.load_graph()
 # graph.load_visited()
 player = Player('Solver')
-# player.map_rooms()
+player.map_rooms()
 
 
 # ========================== MAP ENDPOINTS ======================
