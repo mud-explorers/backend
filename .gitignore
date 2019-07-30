@@ -108,3 +108,6 @@ player.position
 
 # game logs
 mud.log
+
+# rooms details
+rooms.details
