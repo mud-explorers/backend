@@ -224,7 +224,15 @@ class Player(object):
             exits = self.current_room.get_exits()
             random.shuffle(exits)
             direction = exits[0]
-            post_data = {"direction": direction}
+            next_room_id = self.current_room.get_room_in_direction(
+                direction).id if self.current_room.get_room_in_direction(direction) != '?' else None
+            if next_room_id is not None:
+                post_data = {
+                    "direction": direction,
+                    "next_room_id": str(next_room_id)
+                }
+            else:
+                post_data = {"direction": direction}
 
             res = requests.post(url=node+"/move", json=post_data).json()
 
