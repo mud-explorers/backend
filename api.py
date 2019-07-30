@@ -172,7 +172,12 @@ class Player(object):
         self.name = name
         self.current_room = None
 
-    def travel(self, direction):
+    def travel(self, direction, dash=False, num_rooms=1):
+        if dash:
+            for n in range(num_rooms-1):
+                next_room = self.current_room.get_room_in_direction(direction)
+                self.current_room = next_room
+
         next_room = self.current_room.get_room_in_direction(direction)
         if next_room is not None:
             self.current_room = next_room
@@ -282,9 +287,14 @@ class Player(object):
         while self.get_num_of_unexplored_rooms() > 0:
             newpath, newrooms = self.glue_consecutive_path(
                 self.find_nearest_unexplored_room())
+
+            dash = False
+            num_rooms = 1
+
             for i in range(len(newpath)):
                 if len(newpath[i]) > 1:
                     # use dash
+                    dash = True
                     direction = newpath[i][0]
                     num_rooms = len(newpath[i])
                     next_room_ids = ",".join(map(str, newrooms[i]))
@@ -335,7 +345,7 @@ class Player(object):
                     self.current_room.connect_rooms(
                         direction, graph.rooms[new_room.id])
 
-                self.travel(direction)
+                self.travel(direction, dash, num_rooms)
                 prev_direction = direction
                 graph.save_graph()
                 self.save_position()
@@ -344,8 +354,8 @@ class Player(object):
 
 app = Flask(__name__)
 graph = Graph()
-# graph.load_graph()
-# graph.load_visited()
+graph.load_graph()
+graph.load_visited()
 player = Player('Solver')
 # player.map_rooms()
 
@@ -420,14 +430,9 @@ def take():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
     # check to see if item is in room we are in, to avoid cooldown penalty.
-<<<<<<< HEAD
-    if True:
-        body = {"name": treasure}
-=======
     # if treasure in player.current_room[items]:
     if False:
-        body = { "name": treasure }
->>>>>>> fa97fc44376c0aabd9ceb3533a7f15935525d30c
+        body = {"name": treasure}
         r = requests.post(url=url, headers=headers, json=body)
         return jsonify(r.json()), 200
     else:
@@ -442,14 +447,9 @@ def drop():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
     # check if we have treasure in inventory to avoid cooldown penalty.
-<<<<<<< HEAD
-    if True:
-        body = {"name": treasure}
-=======
     # if treasure in player.inventory:
     if False:
-        body = { "name": treasure }
->>>>>>> fa97fc44376c0aabd9ceb3533a7f15935525d30c
+        body = {"name": treasure}
         r = requests.post(url=url, headers=headers, json=body)
         return jsonify(r.json()), 200
     else:
