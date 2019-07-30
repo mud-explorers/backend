@@ -329,15 +329,11 @@ def take():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-<<<<<<< HEAD
     # check to see if item is in room we are in, to avoid cooldown penalty.
     if True:
         body = { "name": treasure }
         r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
-=======
-    body = {"name": treasure}
->>>>>>> 9bc45e7ea4b142bdf03e8e9f2806bfed61134908
 
 
 @app.route('/drop', methods=['POST'])
@@ -347,15 +343,11 @@ def drop():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-<<<<<<< HEAD
     # check if we have treasure in inventory to avoid cooldown penalty.
     if True:
         body = { "name": treasure }
         r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
-=======
-    body = {"name": treasure}
->>>>>>> 9bc45e7ea4b142bdf03e8e9f2806bfed61134908
 
 
 # ========================== PLAYER ENDPOINTS ======================
