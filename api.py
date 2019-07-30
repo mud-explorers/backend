@@ -1,5 +1,7 @@
 import json
-from time import time
+import time
+import datetime
+import random
 from uuid import uuid4
 from flask import Flask, jsonify, request
 from urllib.parse import urlparse
@@ -75,7 +77,8 @@ class Room(object):
     def __str__(self):
         exits = dict()
         for x in self.get_exits():
-            exits[x] = self.get_room_in_direction(x).id
+            exits[x] = '?' if type(self.get_room_in_direction(
+                x)) == str else self.get_room_in_direction(x).id
         return f"{self.id}:[{(self.x, self.y)},{exits}]"
 
 
@@ -109,27 +112,38 @@ class Graph(object):
         if os.path.exists(map_file):
             with open(map_file, 'r') as f:
                 content = eval(f.readline())
-                for i in range(len(content)):
-                    room_id = i
-                    x, y = content[i][0]
-                    exits = content[1]
+                for k, v in content.items():
+                    room_id = k
+                    x, y = v[0]
                     room = Room(room_id, x, y)
                     self.add_room(room)
-                for i in range(len(content)):
-                    room_id = i
-                    exits = content[i][1]
+                for k, v in content.items():
+                    room_id = k
+                    exits = v[1]
                     if 'n' in exits:
-                        self.rooms[room_id].connect_rooms(
-                            'n', self.rooms[exits['n']])
+                        if exits['n'] == '?':
+                            self.rooms[room_id].n_to = '?'
+                        else:
+                            self.rooms[room_id].connect_rooms(
+                                'n', self.rooms[exits['n']])
                     if 's' in exits:
-                        self.rooms[room_id].connect_rooms(
-                            's', self.rooms[exits['s']])
+                        if exits['s'] == '?':
+                            self.rooms[room_id].s_to = '?'
+                        else:
+                            self.rooms[room_id].connect_rooms(
+                                's', self.rooms[exits['s']])
                     if 'e' in exits:
-                        self.rooms[room_id].connect_rooms(
-                            'e', self.rooms[exits['e']])
+                        if exits['e'] == '?':
+                            self.rooms[room_id].e_to = '?'
+                        else:
+                            self.rooms[room_id].connect_rooms(
+                                'e', self.rooms[exits['e']])
                     if 'w' in exits:
-                        self.rooms[room_id].connect_rooms(
-                            'w', self.rooms[exits['w']])
+                        if exits['w'] == '?':
+                            self.rooms[room_id].w_to = '?'
+                        else:
+                            self.rooms[room_id].connect_rooms(
+                                'w', self.rooms[exits['w']])
         else:
             return None
 
@@ -153,9 +167,9 @@ class Graph(object):
 
 
 class Player(object):
-    def __init__(self, name, starting_room):
+    def __init__(self, name):
         self.name = name
-        self.current_room = starting_room
+        self.current_room = None
 
     def travel(self, direction):
         next_room = self.current_room.get_room_in_direction(direction)
@@ -164,17 +178,86 @@ class Player(object):
         else:
             print("Cannot move in that direction!")
 
-    def autonomous_travel(self, direction):
+    def save_position(self):
+        f = open('./player.position', 'a')
+        f.write(
+            f"{datetime.datetime.now()}: ({self.current_room.x},{self.current_room.y})\n")
+        f.close()
+
+    def autonomous_play(self):
         pass
 
     def map_rooms(self):
-        pass
+        if len(sys.argv) > 1:
+            node = f"http://{sys.argv[1]}:{int(sys.argv[2])}"
+        else:
+            node = "http://localhost:5000"
+
+        res = requests.get(url=node+'/init').json()
+
+        id = res.get('room_id')
+        title = res.get('title')
+        x, y = eval(res.get('coordinates'))
+        cooldown = res.get('cooldown')
+        exits = res.get('exits')
+
+        first_room = Room(id, x, y, title)
+        first_room.n_to = "?" if "n" in exits else None
+        first_room.s_to = "?" if "s" in exits else None
+        first_room.e_to = "?" if "e" in exits else None
+        first_room.w_to = "?" if "w" in exits else None
+
+        graph.add_room(first_room)
+        self.current_room = graph.rooms[id]
+        time.sleep(cooldown)
+        self.save_position()
+
+        while len(graph.rooms) < 500:
+            # check the current room
+            # get exits
+            # do random action
+            # if current room not in self.rooms, add it
+            # sleep X
+            # save graph
+            # repeat
+
+            exits = self.current_room.get_exits()
+            random.shuffle(exits)
+            direction = exits[0]
+            post_data = {"direction": direction}
+
+            res = requests.post(url=node+"/move", json=post_data).json()
+
+            id = res.get('room_id')
+            cooldown = res.get('cooldown')
+            title = res.get('title')
+            x, y = eval(res.get('coordinates'))
+            exits = res.get('exits')
+            if id not in graph.rooms:
+                new_room = Room(id, x, y, title)
+                new_room.n_to = "?" if "n" in exits else None
+                new_room.s_to = "?" if "s" in exits else None
+                new_room.e_to = "?" if "e" in exits else None
+                new_room.w_to = "?" if "w" in exits else None
+                graph.add_room(new_room)
+            else:
+                new_room = graph.rooms[id]
+
+            if self.current_room.get_room_in_direction(direction) == '?':
+                self.current_room.connect_rooms(
+                    direction, graph.rooms[new_room.id])
+
+            self.travel(direction)
+            graph.save_graph()
+            self.save_position()
+            time.sleep(cooldown)
 
 
 app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
 graph.load_visited()
+player = Player('Solver')
 
 
 # ========================== MAP ENDPOINTS ======================
@@ -211,11 +294,12 @@ def move():
 @app.route('/dash', methods=['POST'])
 def dash():
     values = request.get_json()
-    [direction, num_rooms] = [values[k] if k in values else None for k in ("direction", "num_rooms")]
+    [direction, num_rooms] = [
+        values[k] if k in values else None for k in ("direction", "num_rooms")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/dash/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "direction": direction, "num_rooms": num_rooms }
+    body = {"direction": direction, "num_rooms": num_rooms}
 
     next_room_ids = ""
     # from the current room, generate the ids for num_rooms in direction
@@ -245,7 +329,7 @@ def take():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": treasure }
+    body = {"name": treasure}
 
 
 @app.route('/drop', methods=['POST'])
@@ -255,7 +339,7 @@ def drop():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = { "name": treasure }
+    body = {"name": treasure}
 
 
 # ========================== PLAYER ENDPOINTS ======================
