@@ -184,6 +184,16 @@ class Player(object):
             f"{datetime.datetime.now()}: ({self.current_room.x},{self.current_room.y})\n")
         f.close()
 
+    def get_opposite_direction(self, direction):
+        directions = {
+            'n': 's',
+            's': 'n',
+            'e': 'w',
+            'w': 'e',
+            None: None
+        }
+        return directions[direction]
+
     def autonomous_play(self):
         pass
 
@@ -212,6 +222,8 @@ class Player(object):
         time.sleep(cooldown)
         self.save_position()
 
+        prev_direction = None
+
         while len(graph.rooms) < 500:
             # check the current room
             # get exits
@@ -222,8 +234,11 @@ class Player(object):
             # repeat
 
             exits = self.current_room.get_exits()
-            random.shuffle(exits)
-            direction = exits[0]
+            if len(exits) > 1:
+                exits = [item for item in exits if item !=
+                         self.get_opposite_direction(prev_direction)]
+                random.shuffle(exits)
+                direction = exits[0]
             next_room_id = self.current_room.get_room_in_direction(
                 direction).id if self.current_room.get_room_in_direction(direction) != '?' else None
             if next_room_id is not None:
@@ -256,6 +271,7 @@ class Player(object):
                     direction, graph.rooms[new_room.id])
 
             self.travel(direction)
+            prev_direction = direction
             graph.save_graph()
             self.save_position()
             time.sleep(cooldown)
