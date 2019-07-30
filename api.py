@@ -213,10 +213,7 @@ class Player(object):
         pass
 
     def map_rooms(self):
-        if len(sys.argv) > 1:
-            node = f"http://{sys.argv[1]}:{int(sys.argv[2])}"
-        else:
-            node = "http://localhost:5000"
+        node = "http://localhost:5000"
 
         res = requests.get(url=node+'/init').json()
 
@@ -299,9 +296,10 @@ class Player(object):
 
 app = Flask(__name__)
 graph = Graph()
-graph.load_graph()
-graph.load_visited()
+# graph.load_graph()
+# graph.load_visited()
 player = Player('Solver')
+# player.map_rooms()
 
 
 # ========================== MAP ENDPOINTS ======================
@@ -361,9 +359,12 @@ def examine():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
-
-    r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
+    # if name in player.current_room[items] or name in player.current_room[players]:
+    if False:
+        r = requests.post(url=url, headers=headers, json=body)
+        return jsonify(r.json()), 200
+    else:
+        return jsonify({"message": f"{name} is not in the room", "treasures": ["not something"], "players": ["not something"]}), 404
 
 
 @app.route('/take', methods=['POST'])
@@ -374,10 +375,13 @@ def take():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
     # check to see if item is in room we are in, to avoid cooldown penalty.
-    if True:
+    # if treasure in player.current_room[items]:
+    if False:
         body = { "name": treasure }
         r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
+        return jsonify(r.json()), 200
+    else:
+        return jsonify({"message": f"{treasure} is not in the room", "treasures": ["not something"]}), 404
 
 
 @app.route('/drop', methods=['POST'])
@@ -388,10 +392,13 @@ def drop():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
     # check if we have treasure in inventory to avoid cooldown penalty.
-    if True:
+    # if treasure in player.inventory:
+    if False:
         body = { "name": treasure }
         r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
+        return jsonify(r.json()), 200
+    else:
+        return jsonify({"message": f"{treasure} is not in your inventory", "inventory": ["not something"]}), 404
 
 
 # ========================== PLAYER ENDPOINTS ======================
@@ -413,6 +420,9 @@ def changer():
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": new_name}
     # check if we have name-changer power, cooldown penalty is 150
-
-    r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
+    # if "name_changer" in player.powerups:
+    if False:
+        r = requests.post(url=url, headers=headers, json=body)
+        return jsonify(r.json()), 200
+    else:
+        return jsonify({"message": f"You do not have the ability to change your name", "powerups": ["not name_chnager"]}), 404
