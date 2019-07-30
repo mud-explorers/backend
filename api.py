@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import requests
 import sys
 import os
+from collections import deque, defaultdict, OrderedDict
 
 apikey = None
 with open('./.key') as f:
@@ -194,6 +195,20 @@ class Player(object):
         }
         return directions[direction]
 
+    def bfs(self, dest):
+        pass
+
+    def find_nearest_unexplored_room(self):
+        # filter out all the rooms with unexplored paths
+        rooms = dict()
+        for k, room in graph.rooms.items():
+            exits = [x for x in room.get_exits()
+                     if room.get_room_in_direction(x) == '?']
+            if len(exits) > 0:
+                rooms[k] = self.bfs(k)
+        print(rooms)
+        # return rooms
+
     def autonomous_play(self):
         pass
 
@@ -223,7 +238,6 @@ class Player(object):
         self.save_position()
 
         prev_direction = None
-
         while len(graph.rooms) < 500:
             # check the current room
             # get exits
@@ -235,16 +249,20 @@ class Player(object):
 
             exits = self.current_room.get_exits()
             if len(exits) > 1:
-                exits = [item for item in exits if item !=
-                         self.get_opposite_direction(prev_direction)]
+                if len([x for x in exits if self.current_room.get_room_in_direction(x) == '?']) > 0:
+                    exits = [
+                        x for x in exits if self.current_room.get_room_in_direction(x) == '?']
+                else:
+                    exits = [x for x in exits if x !=
+                             self.get_opposite_direction(prev_direction)]
                 random.shuffle(exits)
-                direction = exits[0]
-            next_room_id = self.current_room.get_room_in_direction(
-                direction).id if self.current_room.get_room_in_direction(direction) != '?' else None
-            if next_room_id is not None:
+            direction = exits[0]
+            next_room = self.current_room.get_room_in_direction(
+                direction) if self.current_room.get_room_in_direction(direction) != '?' else None
+            if next_room is not None:
                 post_data = {
                     "direction": direction,
-                    "next_room_id": str(next_room_id)
+                    "next_room_id": str(next_room.id)
                 }
             else:
                 post_data = {"direction": direction}
@@ -263,6 +281,8 @@ class Player(object):
                 new_room.e_to = "?" if "e" in exits else None
                 new_room.w_to = "?" if "w" in exits else None
                 graph.add_room(new_room)
+                print(
+                    f"Mapped a new room! Currently mapped: {len(graph.rooms)} rooms.")
             else:
                 new_room = graph.rooms[id]
 
