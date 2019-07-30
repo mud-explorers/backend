@@ -167,7 +167,7 @@ class Graph(object):
             return None
 
 
-class Player(object):
+cclass Player(object):
     def __init__(self, name):
         self.name = name
         self.current_room = None
@@ -329,50 +329,6 @@ class Player(object):
                     print(
                         f"Mapped a new room! Currently mapped: {len(graph.rooms)} rooms.")
                 else:
-                    exits = [x for x in exits if x !=
-                             self.get_opposite_direction(prev_direction)]
-                random.shuffle(exits)
-            direction = exits[0]
-            next_room = self.current_room.get_room_in_direction(
-                direction) if self.current_room.get_room_in_direction(direction) != '?' else None
-            if next_room is not None:
-                post_data = {
-                    "direction": direction,
-                    "next_room_id": str(next_room.id)
-                }
-            else:
-                post_data = {"direction": direction}
-
-            res = requests.post(url=node+"/move", json=post_data).json()
-
-            id = res.get('room_id')
-            cooldown = res.get('cooldown')
-            title = res.get('title')
-            if title == 'Shop':
-                print('FOUND SHOP: ', id)
-            x, y = eval(res.get('coordinates'))
-            exits = res.get('exits')
-            if id not in graph.rooms:
-                new_room = Room(id, x, y, title)
-                new_room.n_to = "?" if "n" in exits else None
-                new_room.s_to = "?" if "s" in exits else None
-                new_room.e_to = "?" if "e" in exits else None
-                new_room.w_to = "?" if "w" in exits else None
-                graph.add_room(new_room)
-                print(
-                    f"Mapped a new room! Currently mapped: {len(graph.rooms)} rooms.")
-            else:
-                new_room = graph.rooms[id]
-
-            if self.current_room.get_room_in_direction(direction) == '?':
-                self.current_room.connect_rooms(
-                    direction, graph.rooms[new_room.id])
-
-            self.travel(direction)
-            prev_direction = direction
-            graph.save_graph()
-            self.save_position()
-            time.sleep(cooldown)
                     new_room = graph.rooms[id]
 
                 if self.current_room.get_room_in_direction(direction) == '?':
