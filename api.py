@@ -195,19 +195,29 @@ class Player(object):
         }
         return directions[direction]
 
-    def bfs(self, dest):
-        pass
+    def bfs(self):
+        visited = set()
+        queue = deque()
+        queue.append([{self.current_room.id: None}])
+        while len(queue) > 0:
+            path = queue.popleft()
+            vertex = list(path[-1])[0]
+            if vertex not in visited:
+                for news in graph.rooms[vertex].get_exits():
+                    new_path = list(path)
+                    val = {graph.rooms[vertex].get_room_in_direction(
+                        news).id: news} if graph.rooms[vertex].get_room_in_direction(news) != '?' else {'?': news}
+                    new_path.append(val)
+                    queue.append(new_path)
+                    if graph.rooms[vertex].get_room_in_direction(news) == '?':
+                        return [list(step.values())[0] for step in new_path[1:]]
+                visited.add(vertex)
+        return None
 
     def find_nearest_unexplored_room(self):
-        # filter out all the rooms with unexplored paths
-        rooms = dict()
-        for k, room in graph.rooms.items():
-            exits = [x for x in room.get_exits()
-                     if room.get_room_in_direction(x) == '?']
-            if len(exits) > 0:
-                rooms[k] = self.bfs(k)
-        print(rooms)
-        # return rooms
+        # find path to the nearest room with unexplored paths
+        route = self.bfs()
+        print(route)
 
     def autonomous_play(self):
         pass
@@ -236,6 +246,8 @@ class Player(object):
         self.current_room = graph.rooms[id]
         time.sleep(cooldown)
         self.save_position()
+
+        return self.find_nearest_unexplored_room()
 
         prev_direction = None
         while len(graph.rooms) < 500:
@@ -375,7 +387,7 @@ def take():
     headers = {"Authorization": f"Token {apikey}"}
     # check to see if item is in room we are in, to avoid cooldown penalty.
     if True:
-        body = { "name": treasure }
+        body = {"name": treasure}
         r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
 
@@ -389,7 +401,7 @@ def drop():
     headers = {"Authorization": f"Token {apikey}"}
     # check if we have treasure in inventory to avoid cooldown penalty.
     if True:
-        body = { "name": treasure }
+        body = {"name": treasure}
         r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
 
