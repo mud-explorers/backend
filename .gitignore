@@ -102,3 +102,6 @@ map.graph
 
 # visited
 map.visited
+
+# player position
+player.position
