@@ -105,3 +105,6 @@ map.visited
 
 # player position
 player.position
+
+# game logs
+mud.log
