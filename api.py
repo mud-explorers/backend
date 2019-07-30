@@ -167,7 +167,7 @@ class Graph(object):
             return None
 
 
-cclass Player(object):
+class Player(object):
     def __init__(self, name):
         self.name = name
         self.current_room = None
@@ -348,10 +348,31 @@ cclass Player(object):
 
 app = Flask(__name__)
 graph = Graph()
-# graph.load_graph()
+graph.load_graph()
 # graph.load_visited()
 player = Player('Solver')
-player.map_rooms()
+# player.map_rooms()
+
+def bfs_for_path_to(target):
+    cur_room = 336
+    with open(map_file, 'r') as f:
+        graph = eval(f.readline())
+        visited = set()
+        visited.add(cur_room)
+        paths = [[cur_room]]
+        while target not in visited and len(paths) > 0:
+            path = paths.pop(0)
+            room = path[-1]
+            room_set = graph[room][1]
+            for direction, room_id in room_set.items():
+                if room_id == target:
+                    return [*path, room_id]
+                elif room_id not in visited and room_id != '?':
+                    visited.add(room_id)
+                    paths.append([*path, room_id])
+        return "No such path"
+
+print(bfs_for_path_to(70))
 
 
 # ========================== MAP ENDPOINTS ======================
