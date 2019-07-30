@@ -373,7 +373,11 @@ def take():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = {"name": treasure}
+    # check to see if item is in room we are in, to avoid cooldown penalty.
+    if True:
+        body = { "name": treasure }
+        r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
 
 
 @app.route('/drop', methods=['POST'])
@@ -383,7 +387,11 @@ def drop():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = {"name": treasure}
+    # check if we have treasure in inventory to avoid cooldown penalty.
+    if True:
+        body = { "name": treasure }
+        r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
 
 
 # ========================== PLAYER ENDPOINTS ======================
@@ -404,6 +412,7 @@ def changer():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": new_name}
+    # check if we have name-changer power, cooldown penalty is 150
 
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
