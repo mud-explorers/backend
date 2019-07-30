@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import requests
 import sys
 import os
+from collections import deque, defaultdict, OrderedDict
 
 apikey = None
 with open('./.key') as f:
@@ -184,6 +185,30 @@ class Player(object):
             f"{datetime.datetime.now()}: ({self.current_room.x},{self.current_room.y})\n")
         f.close()
 
+    def get_opposite_direction(self, direction):
+        directions = {
+            'n': 's',
+            's': 'n',
+            'e': 'w',
+            'w': 'e',
+            None: None
+        }
+        return directions[direction]
+
+    def bfs(self, dest):
+        pass
+
+    def find_nearest_unexplored_room(self):
+        # filter out all the rooms with unexplored paths
+        rooms = dict()
+        for k, room in graph.rooms.items():
+            exits = [x for x in room.get_exits()
+                     if room.get_room_in_direction(x) == '?']
+            if len(exits) > 0:
+                rooms[k] = self.bfs(k)
+        print(rooms)
+        # return rooms
+
     def autonomous_play(self):
         pass
 
@@ -212,6 +237,7 @@ class Player(object):
         time.sleep(cooldown)
         self.save_position()
 
+        prev_direction = None
         while len(graph.rooms) < 500:
             # check the current room
             # get exits
@@ -222,9 +248,24 @@ class Player(object):
             # repeat
 
             exits = self.current_room.get_exits()
-            random.shuffle(exits)
+            if len(exits) > 1:
+                if len([x for x in exits if self.current_room.get_room_in_direction(x) == '?']) > 0:
+                    exits = [
+                        x for x in exits if self.current_room.get_room_in_direction(x) == '?']
+                else:
+                    exits = [x for x in exits if x !=
+                             self.get_opposite_direction(prev_direction)]
+                random.shuffle(exits)
             direction = exits[0]
-            post_data = {"direction": direction}
+            next_room = self.current_room.get_room_in_direction(
+                direction) if self.current_room.get_room_in_direction(direction) != '?' else None
+            if next_room is not None:
+                post_data = {
+                    "direction": direction,
+                    "next_room_id": str(next_room.id)
+                }
+            else:
+                post_data = {"direction": direction}
 
             res = requests.post(url=node+"/move", json=post_data).json()
 
@@ -240,6 +281,8 @@ class Player(object):
                 new_room.e_to = "?" if "e" in exits else None
                 new_room.w_to = "?" if "w" in exits else None
                 graph.add_room(new_room)
+                print(
+                    f"Mapped a new room! Currently mapped: {len(graph.rooms)} rooms.")
             else:
                 new_room = graph.rooms[id]
 
@@ -248,6 +291,7 @@ class Player(object):
                     direction, graph.rooms[new_room.id])
 
             self.travel(direction)
+            prev_direction = direction
             graph.save_graph()
             self.save_position()
             time.sleep(cooldown)
