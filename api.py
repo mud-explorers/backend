@@ -20,6 +20,7 @@ map_visited_file = './map.visited'
 player_position_file = './player.position'
 room_details_file = './rooms.details'
 node = "http://localhost:5000"
+start_room_setting = 0
 
 
 class Room(object):
@@ -360,7 +361,7 @@ class Player(object):
         first_room.w_to = "?" if "w" in exits else None
 
         graph.add_room(first_room)
-        self.current_room = graph.rooms[0]
+        self.current_room = graph.rooms[start_room_setting]
         time.sleep(cooldown)
         self.save_position()
 
