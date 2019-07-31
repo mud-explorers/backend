@@ -528,17 +528,18 @@ class Player(object):
 
     def mine(self):
         # lambdacoin mining
-        last_proof, difficulty = self.get_last_proof()
-        print(f"Last proof: {last_proof}")
-        print(f"Difficulty: {difficulty}")
-        
-        # do some mining
-        proof = self.proof_of_work(last_proof, difficulty)
+        while True:
+            last_proof, difficulty = self.get_last_proof()
+            print(f"Last proof: {last_proof}")
+            print(f"Difficulty: {difficulty}")
+            
+            # do some mining
+            proof = self.proof_of_work(last_proof, difficulty)
 
-        res = requests.post(url=node+'/mine',
-                            json={"proof": proof}).json()
-        cooldown = res.get('cooldown')
-        time.sleep(cooldown)
+            res = requests.post(url=node+'/mine',
+                                json={"proof": proof}).json()
+            cooldown = res.get('cooldown')
+            time.sleep(cooldown)
 
 app = Flask(__name__)
 graph = Graph()
