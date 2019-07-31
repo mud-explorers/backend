@@ -498,7 +498,7 @@ app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
 # graph.load_visited()
-player = Player(player_name_setting)
+# player = Player(player_name_setting)
 # player.map_rooms()
 
 
