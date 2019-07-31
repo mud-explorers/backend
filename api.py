@@ -20,7 +20,8 @@ map_visited_file = './map.visited'
 player_position_file = './player.position'
 room_details_file = './rooms.details'
 node = "http://localhost:5000"
-start_room_setting = 0
+start_room_setting = 437
+dest_position_setting = 495
 player_name_setting = "Something"
 
 
@@ -371,9 +372,10 @@ class Player(object):
         prev_direction = None
         # without fly & dash
         # newpath = self.find_nearest_unexplored_room()
-        # newpath = self.bfs_to_dest()
+        # newpath = self.bfs_to_dest(dest_position_setting)
 
-        newpath, newrooms = self.glue_consecutive_path(self.bfs_to_dest(383))
+        newpath, newrooms = self.glue_consecutive_path(
+            self.bfs_to_dest(dest_position_setting))
         # newpath, newrooms = self.glue_consecutive_path(self.find_nearest_unexplored_room())
 
         # while self.get_num_of_unexplored_rooms() > 0:
@@ -408,15 +410,15 @@ class Player(object):
                     else:
                         post_data = {"direction": direction}
                     # uncomment when we get the ability to fly
-                    if(graph.rooms[next_room.id].elevation > self.current_room.elevation):
-                        res = requests.post(
-                            url=node+"/fly", json=post_data).json()
-                    else:
-                        res = requests.post(
-                            url=node+"/move", json=post_data).json()
+                    # if(graph.rooms[next_room.id].elevation > self.current_room.elevation):
+                    #     res = requests.post(
+                    #         url=node+"/fly", json=post_data).json()
+                    # else:
+                    #     res = requests.post(
+                    #         url=node+"/move", json=post_data).json()
 
-                    # res = requests.post(
-                        # url=node+"/move", json=post_data).json()
+                    res = requests.post(
+                        url=node+"/move", json=post_data).json()
 
                 id = res.get('room_id')
                 cooldown = res.get('cooldown')
@@ -469,8 +471,8 @@ class Player(object):
             break
             # newpath = self.find_nearest_unexplored_room()
             # newpath = self.find_nearest_unexplored_room() if (self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
-            newpath, newrooms = self.glue_consecutive_path(self.bfs_to_dest(383)) if (
-                self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
+            # newpath, newrooms = self.glue_consecutive_path(self.bfs_to_dest(496)) if (
+                # self.encumbrance/self.strength) < 0.8 else self.glue_consecutive_path(self.bfs_to_dest(1))
             # newpath, newrooms = self.glue_consecutive_path(self.find_nearest_unexplored_room())
 
     def change_name_to(self):
@@ -483,7 +485,7 @@ class Player(object):
     def examine(self, name):
         # probably needs more logic
         res = requests.post(url=node+'/examine',
-                            json={"name": self.new_name}).json()
+                            json={"name": name}).json()
         cooldown = res.get('cooldown')
         time.sleep(cooldown)
 
@@ -493,6 +495,12 @@ class Player(object):
         cooldown = res.get('cooldown')
         time.sleep(cooldown)
 
+    def wear(self, name):
+        # probably needs more logic
+        res = requests.post(url=node+'/equipment',
+                            json={"name": name}).json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
 
 app = Flask(__name__)
 graph = Graph()
@@ -681,4 +689,41 @@ def transmogripher_route():
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
     r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+@app.route('/equipment', methods=['POST'])
+def equipment_route():
+    values = request.get_json()
+    name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/wear/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"name": name}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+# ========================== LAMBDACOIN ENDPOINTS ======================
+@app.route('/mine', methods=['POST'])
+def mine_route():
+    values = request.get_json()
+    proof = values.get("proof")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/mine/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"proof": proof}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+@app.route('/last_proof', methods=['GET'])
+def last_proof_route():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/last_proof/'
+    headers = {"Authorization": f"Token {apikey}"}
+    r = requests.get(url=url, headers=headers)
+    return jsonify(r.json()), 200
+
+@app.route('/get_balance', methods=['GET'])
+def get_balance_route():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/get_balance/'
+    headers = {"Authorization": f"Token {apikey}"}
+    r = requests.get(url=url, headers=headers)
     return jsonify(r.json()), 200
