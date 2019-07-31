@@ -1,3 +1,4 @@
+import hashlib
 import json
 import time
 import datetime
@@ -20,8 +21,8 @@ map_visited_file = './map.visited'
 player_position_file = './player.position'
 room_details_file = './rooms.details'
 node = "http://localhost:5000"
-start_room_setting = 437
-dest_position_setting = 495
+start_room_setting = 0
+dest_position_setting = 1
 player_name_setting = "Something"
 
 
@@ -499,6 +500,43 @@ class Player(object):
         # probably needs more logic
         res = requests.post(url=node+'/equipment',
                             json={"name": name}).json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
+
+    def get_last_proof(self):
+        last_proof_json = requests.get(url=node+'/last_proof').json()
+        last_proof = last_proof_json.get('proof')
+        cooldown = last_proof_json.get('cooldown')
+        difficulty = last_proof_json.get('difficulty')
+        time.sleep(cooldown)
+        return (last_proof, difficulty)
+
+    def get_balance(self):
+        res = requests.get(url=node+'/get_balance').json()
+        balance = res.get('balance')
+        print('Current balance:', balance)
+
+    def proof_of_work(self, last_proof, difficulty):
+        proof = 0
+        while not self.validate_proof(last_proof, proof, difficulty):
+            proof = str(uuid4()).replace('-', '')
+        return proof
+
+
+    def validate_proof(self, last_proof, proof, difficulty):
+        return hashlib.sha256(f'{last_proof}{proof}'.encode()).hexdigest()[:difficulty] == "0"*difficulty
+
+    def mine(self):
+        # lambdacoin mining
+        last_proof, difficulty = self.get_last_proof()
+        print(f"Last proof: {last_proof}")
+        print(f"Difficulty: {difficulty}")
+        
+        # do some mining
+        proof = self.proof_of_work(last_proof, difficulty)
+
+        res = requests.post(url=node+'/mine',
+                            json={"proof": proof}).json()
         cooldown = res.get('cooldown')
         time.sleep(cooldown)
 
