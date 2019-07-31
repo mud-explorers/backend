@@ -21,6 +21,7 @@ player_position_file = './player.position'
 room_details_file = './rooms.details'
 node = "http://localhost:5000"
 start_room_setting = 0
+player_name_setting = "Something"
 
 
 class Room(object):
@@ -404,9 +405,17 @@ class Player(object):
                         }
                     else:
                         post_data = {"direction": direction}
+                    # uncomment when we get the ability to fly
+                    # if(graph.rooms[next_room.id].elevation > self.current_room.elevation):
+                    #     res = requests.post(
+                    #         url=node+"/fly", json=post_data).json()
+                    # else:
+                    #     res = requests.post(
+                    #         url=node+"/move", json=post_data).json()
 
                     res = requests.post(
                         url=node+"/move", json=post_data).json()
+
                 id = res.get('room_id')
                 cooldown = res.get('cooldown')
                 title = res.get('title')
@@ -457,14 +466,31 @@ class Player(object):
             # newpath = self.find_nearest_unexplored_room() if (self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
 
     def change_name_to(self):
-        return requests.post(url=node+'/name-changer', json={"name": self.new_name}).json()
+        res = requests.post(url=node+'/name-changer',
+                            json={"name": self.new_name}).json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
+        self.update_player()
+
+    def examine(self, name):
+        # probably needs more logic
+        res = requests.post(url=node+'/examine',
+                            json={"name": self.new_name}).json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
+
+    def shrine(self):
+        # probably needs more logic
+        res = requests.post(url=node+'/shrine').json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
 
 
 app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
 # graph.load_visited()
-player = Player('Solver')
+player = Player(player_name_setting)
 # player.map_rooms()
 
 
@@ -532,7 +558,7 @@ def dash():
 
 
 # ========================== TREASURE ENDPOINTS ======================
-@app.route('/examine', methods=['POST'])
+@app.route('/f', methods=['POST'])
 def examine():
     values = request.get_json()
     name = values.get("name")
@@ -540,12 +566,8 @@ def examine():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
-    # if name in player.current_room[items] or name in player.current_room[players]:
-    # if False:
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
-    # else:
-    #     return jsonify({"message": f"{name} is not in the room", "treasures": ["not something"], "players": ["not something"]}), 404
 
 
 @app.route('/take', methods=['POST'])
@@ -607,17 +629,11 @@ def status():
 
 @app.route('/name-changer', methods=['POST'])
 def changer():
-    # check if we have the name changer...
     values = request.get_json()
     new_name = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": new_name}
-    # check if we have name-changer power, cooldown penalty is 150
-    # if "name_changer" in player.powerups:
-    # if False:
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
-    # else:
-    #     return jsonify({"message": f"You do not have the ability to change your name", "powerups": ["not name_chnager"]}), 404
