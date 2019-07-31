@@ -519,7 +519,8 @@ class Player(object):
     def proof_of_work(self, last_proof, difficulty):
         proof = 0
         while not self.validate_proof(last_proof, proof, difficulty):
-            proof = str(uuid4()).replace('-', '')
+            # proof = str(uuid4()).replace('-', '')
+            proof += 1
         return proof
 
 
