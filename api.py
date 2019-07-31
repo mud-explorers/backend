@@ -1,3 +1,4 @@
+import hashlib
 import json
 import time
 import datetime
@@ -21,6 +22,7 @@ player_position_file = './player.position'
 room_details_file = './rooms.details'
 node = "http://localhost:5000"
 start_room_setting = 0
+dest_position_setting = 1
 player_name_setting = "Something"
 
 
@@ -369,30 +371,33 @@ class Player(object):
         self.update_player()
 
         prev_direction = None
-        newpath = self.find_nearest_unexplored_room()
+        # without fly & dash
+        # newpath = self.find_nearest_unexplored_room()
+        # newpath = self.bfs_to_dest(dest_position_setting)
 
-        while self.get_num_of_unexplored_rooms() > 0:
-            # newpath, newrooms = self.glue_consecutive_path(
-                # self.find_nearest_unexplored_room())
+        newpath, newrooms = self.glue_consecutive_path(
+            self.bfs_to_dest(dest_position_setting))
+        # newpath, newrooms = self.glue_consecutive_path(self.find_nearest_unexplored_room())
+
+        # while self.get_num_of_unexplored_rooms() > 0:
+        while True:
             print(f"{len(newpath)} rooms to go through:", newpath)
             for i in range(len(newpath)):
                 if len(newpath[i]) > 1:
                     # # use dash
-                    pass
-                    # direction = newpath[i][0]
-                    # num_rooms = len(newpath[i])
-                    # next_room_ids = ",".join(map(str, newrooms[i]))
+                    # pass
+                    direction = newpath[i][0]
+                    num_rooms = len(newpath[i])
+                    next_room_ids = ",".join(map(str, newrooms[i]))
 
-                    # post_data = {
-                    #     "direction": direction,
-                    #     "num_rooms": str(num_rooms),
-                    #     "next_room_ids": next_room_ids
-                    # }
-                    # print(post_data)
+                    post_data = {
+                        "direction": direction,
+                        "num_rooms": str(num_rooms),
+                        "next_room_ids": next_room_ids
+                    }
 
-                    # res = requests.post(
-                    #     url=node+"/dash", json=post_data).json()
-                    # print(res)
+                    res = requests.post(
+                        url=node+"/dash", json=post_data).json()
                 else:
                     # go by one room
                     direction = newpath[i]
@@ -444,17 +449,19 @@ class Player(object):
                 self.travel(id)
                 self.save_room(res)
                 # check if any items in the room and if so, take it
-                # try:
-                #     items = res.get('items')
-                #     if len(items) > 0:
-                #         for item_name in items:
-                #             print(f"Found {item_name}!")
-                #             if self.encumbrance < self.strength:
-                #                 self.take_item(item_name)
-                #     else:
-                #         print("No items in this room.")
-                # except:
-                #     print("Cannot see anything in this room.")
+                try:
+                    items = res.get('items')
+                    if len(items) > 0:
+                        for item_name in items:
+                            print(f"Found {item_name}!")
+                            if self.encumbrance < self.strength:
+                                self.take_item(item_name)
+                            # else:
+                                # break
+                    else:
+                        print("No items in this room.")
+                except:
+                    print("Cannot see anything in this room.")
 
                 print(
                     f"Current room: {id} ({title} - {x},{y}) - cooldown: {cooldown}")
@@ -462,8 +469,12 @@ class Player(object):
                 graph.save_graph()
                 self.save_position()
                 time.sleep(cooldown)
-            newpath = self.find_nearest_unexplored_room()
+            break
+            # newpath = self.find_nearest_unexplored_room()
             # newpath = self.find_nearest_unexplored_room() if (self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
+            # newpath, newrooms = self.glue_consecutive_path(self.bfs_to_dest(496)) if (
+                # self.encumbrance/self.strength) < 0.8 else self.glue_consecutive_path(self.bfs_to_dest(1))
+            # newpath, newrooms = self.glue_consecutive_path(self.find_nearest_unexplored_room())
 
     def change_name_to(self):
         res = requests.post(url=node+'/name-changer',
@@ -475,7 +486,7 @@ class Player(object):
     def examine(self, name):
         # probably needs more logic
         res = requests.post(url=node+'/examine',
-                            json={"name": self.new_name}).json()
+                            json={"name": name}).json()
         cooldown = res.get('cooldown')
         time.sleep(cooldown)
 
@@ -485,12 +496,57 @@ class Player(object):
         cooldown = res.get('cooldown')
         time.sleep(cooldown)
 
+    def wear(self, name):
+        # probably needs more logic
+        res = requests.post(url=node+'/equipment',
+                            json={"name": name}).json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
+
+    def get_last_proof(self):
+        last_proof_json = requests.get(url=node+'/last_proof').json()
+        last_proof = last_proof_json.get('proof')
+        cooldown = last_proof_json.get('cooldown')
+        difficulty = last_proof_json.get('difficulty')
+        time.sleep(cooldown)
+        return (last_proof, difficulty)
+
+    def get_balance(self):
+        res = requests.get(url=node+'/get_balance').json()
+        balance = res.get('balance')
+        print('Current balance:', balance)
+
+    def proof_of_work(self, last_proof, difficulty):
+        proof = 0
+        while not self.validate_proof(last_proof, proof, difficulty):
+            # proof = str(uuid4()).replace('-', '')
+            proof += 1
+        return proof
+
+
+    def validate_proof(self, last_proof, proof, difficulty):
+        return hashlib.sha256(f'{last_proof}{proof}'.encode()).hexdigest()[:difficulty] == "0"*difficulty
+
+    def mine(self):
+        # lambdacoin mining
+        while True:
+            last_proof, difficulty = self.get_last_proof()
+            print(f"Last proof: {last_proof}")
+            print(f"Difficulty: {difficulty}")
+            
+            # do some mining
+            proof = self.proof_of_work(last_proof, difficulty)
+
+            res = requests.post(url=node+'/mine',
+                                json={"proof": proof}).json()
+            cooldown = res.get('cooldown')
+            time.sleep(cooldown)
 
 app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
 # graph.load_visited()
-player = Player(player_name_setting)
+# player = Player(player_name_setting)
 # player.map_rooms()
 
 
@@ -527,7 +583,7 @@ def init_route():
 
 
 @app.route('/move', methods=['POST'])
-def move():
+def move_route():
     values = request.get_json()
     [direction, next_room_id] = [
         values[k] if k in values else None for k in ("direction", "next_room_id")]
@@ -544,7 +600,7 @@ def move():
 
 
 @app.route('/flight', methods=['POST'])
-def move():
+def flight_route():
     values = request.get_json()
     [direction, next_room_id] = [
         values[k] if k in values else None for k in ("direction", "next_room_id")]
@@ -561,7 +617,7 @@ def move():
 
 
 @app.route('/dash', methods=['POST'])
-def dash():
+def dash_route():
     values = request.get_json()
     [direction, num_rooms, next_room_ids] = [
         values[k] if k in values else None for k in ("direction", "num_rooms", "next_room_ids")]
@@ -576,7 +632,7 @@ def dash():
 
 # ========================== TREASURE ENDPOINTS ======================
 @app.route('/examine', methods=['POST'])
-def examine():
+def examine_route():
     values = request.get_json()
     name = values.get("name")
 
@@ -588,7 +644,7 @@ def examine():
 
 
 @app.route('/take', methods=['POST'])
-def take():
+def take_route():
     values = request.get_json()
     treasure = values.get("name")
 
@@ -600,7 +656,7 @@ def take():
 
 
 @app.route('/drop', methods=['POST'])
-def drop():
+def drop_route():
     values = request.get_json()
     treasure = values.get("name")
 
@@ -612,7 +668,7 @@ def drop():
 
 
 @app.route('/sell', methods=['POST'])
-def sell():
+def sell_route():
     values = request.get_json()
     treasure = values.get("name")
 
@@ -624,7 +680,7 @@ def sell():
 
 
 @app.route('/sell/confirm', methods=['POST'])
-def sell_confirm():
+def sell_confirm_route():
     values = request.get_json()
     treasure = values.get("name")
 
@@ -637,28 +693,77 @@ def sell_confirm():
 
 # ========================== PLAYER ENDPOINTS ======================
 @app.route('/status', methods=['GET'])
-def status():
+def status_route():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/status/'
     headers = {"Authorization": f"Token {apikey}"}
     r = requests.post(url=url, headers=headers)
     return jsonify(r.json()), 200
 
 
-@app.route('/name-changer', methods=['POST'])
-def changer():
+@app.route('/name_changer', methods=['POST'])
+def changer_route():
     values = request.get_json()
     new_name = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
     headers = {"Authorization": f"Token {apikey}"}
-    body = {"name": new_name}
+    body = {"name": new_name, "confirm": "aye"}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
 
 # ========================== MISC ENDPOINTS ======================
 @app.route('/shrine', methods=['POST'])
-def changer():
-    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/shrine/'
+def shrine_route():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/pray/'
     headers = {"Authorization": f"Token {apikey}"}
     r = requests.post(url=url, headers=headers)
+    return jsonify(r.json()), 200
+
+
+@app.route('/transmogriphy', methods=['POST'])
+def transmogripher_route():
+    values = request.get_json()
+    name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/transmogriphy/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"name": name}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+@app.route('/equipment', methods=['POST'])
+def equipment_route():
+    values = request.get_json()
+    name = values.get("name")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/wear/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"name": name}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+# ========================== LAMBDACOIN ENDPOINTS ======================
+@app.route('/mine', methods=['POST'])
+def mine_route():
+    values = request.get_json()
+    proof = values.get("proof")
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/mine/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"proof": proof}
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+@app.route('/last_proof', methods=['GET'])
+def last_proof_route():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/last_proof/'
+    headers = {"Authorization": f"Token {apikey}"}
+    r = requests.get(url=url, headers=headers)
+    return jsonify(r.json()), 200
+
+@app.route('/get_balance', methods=['GET'])
+def get_balance_route():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/get_balance/'
+    headers = {"Authorization": f"Token {apikey}"}
+    r = requests.get(url=url, headers=headers)
     return jsonify(r.json()), 200

@@ -1,4 +1,6 @@
-from api import player
+from api import Player
 
 if __name__ == '__main__':
-    player.map_rooms()
+    player = Player('Player')
+    # player.map_rooms()
+    player.mine()
