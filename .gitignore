@@ -98,16 +98,16 @@ Pipfile.lock
 .key
 
 # graph
-map.graph
+*.graph
 
 # visited
-map.visited
+*.visited
 
 # player position
-player.position
+*.position
 
 # game logs
-mud.log
+*.log
 
 # rooms details
-rooms.details
+*.details

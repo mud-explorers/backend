@@ -11,11 +11,14 @@ import os
 from collections import deque, defaultdict, OrderedDict
 
 apikey = None
-with open('./.key') as f:
+keyfile = './.key'
+with open(keyfile) as f:
     apikey = f.readlines()[0]
 
 map_file = './map.graph'
 map_visited_file = './map.visited'
+player_position_file = './player.position'
+room_details_file = './rooms.details'
 node = "http://localhost:5000"
 
 
@@ -117,10 +120,10 @@ class Graph(object):
                 for k, v in content.items():
                     room_id = k
                     x, y = v[0]
-                    title = v[2]
-                    description = v[3]
-                    elevation = v[4]
-                    terrain = v[5]
+                    title = v[2] if len(v) == 6 else ""
+                    description = v[3] if len(v) == 6 else ""
+                    elevation = v[4] if len(v) == 6 else ""
+                    terrain = v[5] if len(v) == 6 else ""
 
                     room = Room(room_id, x, y, title,
                                 description, elevation, terrain)
@@ -190,13 +193,13 @@ class Player(object):
         self.current_room = graph.rooms[id]
 
     def save_position(self):
-        f = open('./player.position', 'a')
+        f = open(player_position_file, 'a')
         f.write(
             f"{datetime.datetime.now()}: ({self.current_room.x},{self.current_room.y})\n")
         f.close()
 
     def save_room(self, room_json):
-        f = open('./rooms.details', 'a')
+        f = open(room_details_file, 'a')
         f.write(str(room_json)+"\n")
         f.close()
 
@@ -339,11 +342,6 @@ class Player(object):
         return len(rooms_unexplored)
 
     def map_rooms(self):
-        # self.current_room = graph.rooms[3]
-        # rtmp = self.bfs_to_dest(0)
-        # print(len(rtmp), rtmp)
-        # return
-
         res = requests.get(url=node+'/init').json()
 
         id = res.get('room_id')
@@ -457,14 +455,35 @@ class Player(object):
             newpath = self.find_nearest_unexplored_room()
             # newpath = self.find_nearest_unexplored_room() if (self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
 
+    def change_name_to(self):
+        return requests.post(url=node+'/name-changer', json={"name": self.new_name}).json()
+
 
 app = Flask(__name__)
 graph = Graph()
 graph.load_graph()
-graph.load_visited()
+# graph.load_visited()
 player = Player('Solver')
 # player.map_rooms()
 
+
+def bfs_for_path_to(cur_room, target):
+    with open(map_file, 'r') as f:
+        graph = eval(f.readline())
+        visited = set()
+        visited.add(cur_room)
+        paths = [[cur_room]]
+        while target not in visited and len(paths) > 0:
+            path = paths.pop(0)
+            room = path[-1]
+            room_set = graph[room][1]
+            for direction, room_id in room_set.items():
+                if room_id == target:
+                    return [*path, room_id]
+                elif room_id not in visited and room_id != '?':
+                    visited.add(room_id)
+                    paths.append([*path, room_id])
+        return "No such path"
 
 # ========================== MAP ENDPOINTS ======================
 @app.route('/', methods=['GET'])
@@ -535,14 +554,9 @@ def take():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
     headers = {"Authorization": f"Token {apikey}"}
-    # check to see if item is in room we are in, to avoid cooldown penalty.
-    # if treasure in player.current_room[items]:
-    # if False:
     body = {"name": treasure}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
-    # else:
-    # return jsonify({"message": f"{treasure} is not in the room", "treasures": ["not something"]}), 404
 
 
 @app.route('/drop', methods=['POST'])
@@ -552,14 +566,9 @@ def drop():
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/drop/'
     headers = {"Authorization": f"Token {apikey}"}
-    # check if we have treasure in inventory to avoid cooldown penalty.
-    # if treasure in player.inventory:
-    # if False:
     body = {"name": treasure}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
-    # else:
-    #     return jsonify({"message": f"{treasure} is not in your inventory", "inventory": ["not something"]}), 404
 
 
 @app.route('/sell', methods=['POST'])
