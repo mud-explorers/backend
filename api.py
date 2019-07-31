@@ -543,6 +543,23 @@ def move():
     return jsonify(r.json()), 200
 
 
+@app.route('/flight', methods=['POST'])
+def move():
+    values = request.get_json()
+    [direction, next_room_id] = [
+        values[k] if k in values else None for k in ("direction", "next_room_id")]
+
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/flight/'
+    headers = {"Authorization": f"Token {apikey}"}
+    body = {"direction": direction}
+    # check that next_room_id is the right one so we do not get a cooldown penalty....
+    if not not next_room_id and True:
+        body["next_room_id"] = next_room_id
+
+    r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+
 @app.route('/dash', methods=['POST'])
 def dash():
     values = request.get_json()
@@ -558,7 +575,7 @@ def dash():
 
 
 # ========================== TREASURE ENDPOINTS ======================
-@app.route('/f', methods=['POST'])
+@app.route('/examine', methods=['POST'])
 def examine():
     values = request.get_json()
     name = values.get("name")
@@ -636,4 +653,12 @@ def changer():
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": new_name}
     r = requests.post(url=url, headers=headers, json=body)
+    return jsonify(r.json()), 200
+
+# ========================== MISC ENDPOINTS ======================
+@app.route('/shrine', methods=['POST'])
+def changer():
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/shrine/'
+    headers = {"Authorization": f"Token {apikey}"}
+    r = requests.post(url=url, headers=headers)
     return jsonify(r.json()), 200
