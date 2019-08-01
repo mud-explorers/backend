@@ -13,6 +13,7 @@ from collections import deque, defaultdict, OrderedDict
 
 apikey = None
 keyfile = './.key'
+complete_map = []
 with open(keyfile) as f:
     apikey = f.readlines()[0]
 
@@ -25,6 +26,22 @@ start_room_setting = 344
 dest_position_setting = 495
 player_name_setting = "Something"
 hashes_file = './hashes.hashes'
+
+transform_room = lambda room, room_id: {
+        "room_id": room_id,
+        "coordinates": f"({room[0][0]},{room[0][1]})",
+        # "title": room[2],
+        # "description": room[3],
+        "surrounding": room[1],
+        # "terrain": room[5] if len(room) > 5 else "NORMAL",
+        # "elevation": room[4]
+    }
+
+with open(map_file) as f:
+    graph = eval(f.readline())
+    # complete_map = graph
+    for k, room in graph.items():
+        complete_map.append(transform_room(room, k))
 
 
 class Room(object):
@@ -610,13 +627,21 @@ def bfs_for_path_to(cur_room, target):
 # ========================== MAP ENDPOINTS ======================
 @app.route('/', methods=['GET'])
 def root_route():
-    return jsonify({'message': 'API ok'}), 200
+    return jsonify({"rooms": complete_map}), 200
 
 
 @app.route('/init', methods=['GET'])
 def init_route():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/init/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
+
     r = requests.get(url=url, headers=headers)
     return jsonify(r.json()), 200
 
@@ -628,7 +653,14 @@ def move_route():
         values[k] if k in values else None for k in ("direction", "next_room_id")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/move/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"direction": direction}
     # check that next_room_id is the right one so we do not get a cooldown penalty....
     if not not next_room_id and True:
@@ -645,7 +677,14 @@ def flight_route():
         values[k] if k in values else None for k in ("direction", "next_room_id")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/flight/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"direction": direction}
     # check that next_room_id is the right one so we do not get a cooldown penalty....
     if not not next_room_id and True:
@@ -662,7 +701,14 @@ def dash_route():
         values[k] if k in values else None for k in ("direction", "num_rooms", "next_room_ids")]
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/dash/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"direction": direction, "num_rooms": num_rooms,
             "next_room_ids": next_room_ids}
     r = requests.post(url=url, headers=headers, json=body)
@@ -676,7 +722,14 @@ def examine_route():
     name = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/examine/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -688,7 +741,14 @@ def take_route():
     treasure = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/take/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": treasure}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -700,7 +760,14 @@ def drop_route():
     treasure = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/drop/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": treasure}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -712,7 +779,14 @@ def sell_route():
     treasure = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/sell/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": treasure}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -724,7 +798,14 @@ def sell_confirm_route():
     treasure = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/sell/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": treasure, "confirm": "yes"}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -734,7 +815,14 @@ def sell_confirm_route():
 @app.route('/status', methods=['GET'])
 def status_route():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/status/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     r = requests.post(url=url, headers=headers)
     return jsonify(r.json()), 200
 
@@ -745,7 +833,14 @@ def changer_route():
     new_name = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/change_name/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": new_name, "confirm": "aye"}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -754,7 +849,14 @@ def changer_route():
 @app.route('/shrine', methods=['POST'])
 def shrine_route():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/pray/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     r = requests.post(url=url, headers=headers)
     return jsonify(r.json()), 200
 
@@ -764,8 +866,20 @@ def transmogripher_route():
     values = request.get_json()
     name = values.get("name")
 
+<<<<<<< HEAD
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/transmogrify/'
     headers = {"Authorization": f"Token {apikey}"}
+=======
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/transmogriphy/'
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
+>>>>>>> 5f77329bbdc2799160289f74673cff567080b826
     body = {"name": name}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -777,7 +891,14 @@ def equipment_route():
     name = values.get("name")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/wear/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
@@ -789,7 +910,14 @@ def mine_route():
     proof = values.get("proof")
 
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/mine/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     body = {"proof": proof}
     r = requests.post(url=url, headers=headers, json=body)
     if r:
@@ -802,7 +930,14 @@ def mine_route():
 @app.route('/last_proof', methods=['GET'])
 def last_proof_route():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/last_proof/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     r = requests.get(url=url, headers=headers)
     return jsonify(r.json()), 200
 
@@ -810,6 +945,13 @@ def last_proof_route():
 @app.route('/get_balance', methods=['GET'])
 def get_balance_route():
     url = 'https://lambda-treasure-hunt.herokuapp.com/api/bc/get_balance/'
-    headers = {"Authorization": f"Token {apikey}"}
+    auth = request.headers.get('Authorization')
+    token = None
+    if not not auth:
+        token = auth.split(" ")[1]
+    if not not token:
+        headers = {"Authorization": f"Token {token}"}
+    else:
+        headers = {"Authorization": f"Token {apikey}"}
     r = requests.get(url=url, headers=headers)
     return jsonify(r.json()), 200
