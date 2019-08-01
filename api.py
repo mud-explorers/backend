@@ -21,9 +21,10 @@ map_visited_file = './map.visited'
 player_position_file = './player.position'
 room_details_file = './rooms.details'
 node = "http://localhost:5000"
-start_room_setting = 0
-dest_position_setting = 1
+start_room_setting = 344
+dest_position_setting = 495
 player_name_setting = "Something"
+hashes_file = './hashes.hashes'
 
 
 class Room(object):
@@ -192,6 +193,7 @@ class Player(object):
         self.speed = 0
         self.gold = 0
         self.inventory = []
+        self.hashes = dict()
 
     def travel(self, id):
         self.current_room = graph.rooms[id]
@@ -456,8 +458,8 @@ class Player(object):
                             print(f"Found {item_name}!")
                             if self.encumbrance < self.strength:
                                 self.take_item(item_name)
-                            # else:
-                                # break
+                            else:
+                                break
                     else:
                         print("No items in this room.")
                 except:
@@ -469,12 +471,15 @@ class Player(object):
                 graph.save_graph()
                 self.save_position()
                 time.sleep(cooldown)
-            break
+            # break
+            # newpath = self.bfs_to_dest(random.randint(0, 499))
             # newpath = self.find_nearest_unexplored_room()
             # newpath = self.find_nearest_unexplored_room() if (self.encumbrance/self.strength) < 0.8 else self.bfs_to_dest(1)
             # newpath, newrooms = self.glue_consecutive_path(self.bfs_to_dest(496)) if (
                 # self.encumbrance/self.strength) < 0.8 else self.glue_consecutive_path(self.bfs_to_dest(1))
             # newpath, newrooms = self.glue_consecutive_path(self.find_nearest_unexplored_room())
+            if self.strength <= self.encumbrance:
+                break
 
     def change_name_to(self):
         res = requests.post(url=node+'/name-changer',
@@ -503,6 +508,13 @@ class Player(object):
         cooldown = res.get('cooldown')
         time.sleep(cooldown)
 
+    def transmogrify(self, name):
+        # probably needs more logic
+        res = requests.post(url=node+'/transmogrify',
+                            json={"name": name}).json()
+        cooldown = res.get('cooldown')
+        time.sleep(cooldown)
+
     def get_last_proof(self):
         last_proof_json = requests.get(url=node+'/last_proof').json()
         last_proof = last_proof_json.get('proof')
@@ -513,16 +525,15 @@ class Player(object):
 
     def get_balance(self):
         res = requests.get(url=node+'/get_balance').json()
-        balance = res.get('balance')
+        balance = res.get('messages')
         print('Current balance:', balance)
 
     def proof_of_work(self, last_proof, difficulty):
         proof = 0
         while not self.validate_proof(last_proof, proof, difficulty):
-            # proof = str(uuid4()).replace('-', '')
-            proof += 1
+            proof = str(uuid4()).replace('-', '')
+            # proof += 1
         return proof
-
 
     def validate_proof(self, last_proof, proof, difficulty):
         return hashlib.sha256(f'{last_proof}{proof}'.encode()).hexdigest()[:difficulty] == "0"*difficulty
@@ -533,14 +544,42 @@ class Player(object):
             last_proof, difficulty = self.get_last_proof()
             print(f"Last proof: {last_proof}")
             print(f"Difficulty: {difficulty}")
-            
+
             # do some mining
             proof = self.proof_of_work(last_proof, difficulty)
 
-            res = requests.post(url=node+'/mine',
-                                json={"proof": proof}).json()
+            res = requests.post(url=node+'/mine', json={"proof": proof}).json()
             cooldown = res.get('cooldown')
             time.sleep(cooldown)
+            print(res)
+
+    def load_hashes(self):
+        if os.path.exists(hashes_file):
+            with open(hashes_file, 'r') as f:
+                content = eval(f.readline())
+                self.hashes = content
+        else:
+            return None
+
+    def save_hashes(self):
+        pass
+
+    def calculate_hashes(self):
+        self.load_hashes()
+        proof = 0
+        while True:
+            proof = str(uuid4()).replace('-', '')
+            hashval = hashlib.sha256(f'{proof}'.encode()).hexdigest()
+
+            for n in range(5, 65):
+                if hashval[:n] == "0"*n:
+                    self.hashes[f"{n}"].append(proof)
+                    with open(hashes_file, 'w') as f:
+                        output = json.dumps(self.hashes)
+                        f.write(output)
+                    print(f"New hash ({n}) added: {proof}")
+        return
+
 
 app = Flask(__name__)
 graph = Graph()
@@ -720,16 +759,17 @@ def shrine_route():
     return jsonify(r.json()), 200
 
 
-@app.route('/transmogriphy', methods=['POST'])
+@app.route('/transmogrify', methods=['POST'])
 def transmogripher_route():
     values = request.get_json()
     name = values.get("name")
 
-    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/transmogriphy/'
+    url = 'https://lambda-treasure-hunt.herokuapp.com/api/adv/transmogrify/'
     headers = {"Authorization": f"Token {apikey}"}
     body = {"name": name}
     r = requests.post(url=url, headers=headers, json=body)
     return jsonify(r.json()), 200
+
 
 @app.route('/equipment', methods=['POST'])
 def equipment_route():
@@ -752,7 +792,12 @@ def mine_route():
     headers = {"Authorization": f"Token {apikey}"}
     body = {"proof": proof}
     r = requests.post(url=url, headers=headers, json=body)
-    return jsonify(r.json()), 200
+    if r:
+        return jsonify(r.json()), 200
+    else:
+        res = {'cooldown': 0.0}
+        return jsonify(res), 200
+
 
 @app.route('/last_proof', methods=['GET'])
 def last_proof_route():
@@ -760,6 +805,7 @@ def last_proof_route():
     headers = {"Authorization": f"Token {apikey}"}
     r = requests.get(url=url, headers=headers)
     return jsonify(r.json()), 200
+
 
 @app.route('/get_balance', methods=['GET'])
 def get_balance_route():
